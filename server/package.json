@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "db:migrate": "node scripts/migrate.mjs",
+    "test:unit": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

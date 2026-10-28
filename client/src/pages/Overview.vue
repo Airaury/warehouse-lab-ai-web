@@ -21,27 +21,75 @@ const canOperate = computed(() => state.user?.role !== "VIEWER");
 const maxZone = computed(() =>
   Math.max(1, ...state.analytics.zones.map((zone) => zone.quantity)),
 );
+const safeCount = computed(() => items.value.length - low.value.length);
+const activeOrders = computed(
+  () =>
+    state.dashboard.replenishments.filter((row) =>
+      ["PENDING", "APPROVED"].includes(row.status),
+    ).length,
+);
 </script>
 <template>
+  <section class="overview-hero">
+    <div class="hero-copy">
+      <span class="hero-eyebrow"
+        ><i class="live-dot"></i> LAB MATERIAL CONTROL / LIVE</span
+      >
+      <h1>让实验不停在<br /><em>缺料之前。</em></h1>
+      <p>
+        从实时库存发现风险，由 AI
+        核对证据形成补货草案，再由团队完成确认、审批与收货。
+      </p>
+      <div class="hero-actions">
+        <RouterLink to="/advisor" class="hero-primary"
+          >运行 AI 风险分析 <span>↗</span></RouterLink
+        >
+        <RouterLink to="/inventory" class="hero-secondary"
+          >查看实时库存 →</RouterLink
+        >
+      </div>
+      <small
+        >当前为演示物资数据 · {{ time(state.dashboard.snapshotAt) }} 更新</small
+      >
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+      <div class="orbit orbit-one"></div>
+      <div class="orbit orbit-two"></div>
+      <div class="hero-core">
+        <span>✳</span><strong>仓序 LAB</strong><small>风险决策中枢</small>
+      </div>
+      <div class="orbit-chip chip-risk">
+        <b>{{ low.length }}</b
+        ><span>待关注风险</span>
+      </div>
+      <div class="orbit-chip chip-flow">
+        <b>{{ activeOrders }}</b
+        ><span>进行中补货</span>
+      </div>
+      <div class="orbit-chip chip-safe">
+        <b>{{ safeCount }}</b
+        ><span>安全物资</span>
+      </div>
+    </div>
+  </section>
   <div class="page-heading">
     <div>
-      <span class="overline">OPERATIONS / LIVE</span>
-      <h1>运营总览</h1>
-      <p>今天的库存状态与待办事项，一眼掌握。</p>
+      <span class="overline">TODAY'S SIGNALS</span>
+      <h2>今日物资态势</h2>
+      <p>风险、流程和库存变化保持同步。</p>
     </div>
     <span class="snapshot">{{ time(state.dashboard.snapshotAt) }} 更新</span>
   </div>
   <div class="metric-grid">
     <RouterLink to="/inventory" class="metric-card"
-      ><span>物资数量合计</span
-      ><strong>{{ state.analytics.current.toLocaleString() }}</strong
-      ><small>跨单位数值汇总</small><em>↗</em></RouterLink
+      ><span>安全物资</span><strong>{{ safeCount }}</strong
+      ><small>高于安全阈值的 SKU</small><em>↗</em></RouterLink
     ><RouterLink to="/inventory" class="metric-card"
       ><span>管理物资</span><strong>{{ items.length }}</strong
       ><small>个 SKU</small><em>▤</em></RouterLink
     ><RouterLink to="/inventory" class="metric-card danger"
       ><span>低库存预警</span><strong>{{ low.length }}</strong
-      ><small>需要安排补货</small><em>!</em></RouterLink
+      ><small>包含阈值临界物资</small><em>!</em></RouterLink
     ><RouterLink
       :to="
         canOperate && state.user?.role === 'MANAGER'

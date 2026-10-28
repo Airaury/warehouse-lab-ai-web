@@ -91,6 +91,26 @@ CREATE TABLE IF NOT EXISTS notification_reads (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS ai_plan_runs (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  created_by BIGINT UNSIGNED NOT NULL,
+  plan_json JSON NOT NULL,
+  tool_trace JSON NOT NULL,
+  snapshot_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (created_by) REFERENCES users(id),
+  INDEX idx_ai_plan_runs_created (snapshot_at)
+);
+
+CREATE TABLE IF NOT EXISTS ai_plan_applications (
+  plan_id BIGINT UNSIGNED NOT NULL,
+  replenishment_id BIGINT UNSIGNED NOT NULL,
+  sku VARCHAR(40) NOT NULL,
+  PRIMARY KEY (plan_id,sku),
+  UNIQUE KEY uq_ai_plan_application_replenishment (replenishment_id),
+  FOREIGN KEY (plan_id) REFERENCES ai_plan_runs(id),
+  FOREIGN KEY (replenishment_id) REFERENCES replenishments(id)
+);
+
 INSERT INTO items (sku,name,category,zone,quantity,min_quantity,unit) VALUES
 ('A-SENSOR-01','环境传感器','电子元件','A区',86,20,'件'),
 ('A-MCU-02','微控制器','电子元件','A区',34,20,'件'),

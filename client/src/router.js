@@ -13,6 +13,9 @@ import Users from "./pages/Users.vue";
 
 export const router = createRouter({
   history: createWebHistory(),
+  scrollBehavior() {
+    return { top: 0 };
+  },
   routes: [
     { path: "/login", component: Login, meta: { title: "登录" } },
     { path: "/", component: Overview, meta: { title: "运营总览" } },
@@ -51,5 +54,5 @@ router.beforeEach(async (to) => {
     state.user?.role === "VIEWER"
   )
     return "/";
-  document.title = `${to.meta.title} · 仓序`;
+  document.title = `${to.meta.title} · 仓序 LAB`;
 });

@@ -39,12 +39,12 @@ async function login() {
   <div class="login-page">
     <div class="login-art">
       <div class="login-brand">
-        <span class="brand-mark">序</span><strong>仓序</strong>
+        <span class="brand-mark">序</span><strong>仓序 LAB</strong>
       </div>
       <div class="login-hero">
-        <span class="overline">WAREHOUSE INTELLIGENCE</span>
-        <h1>让每一次<br />库存决策<br />都有依据。</h1>
-        <p>从预警、申请到审批与收货，把仓库业务连成一条清晰的工作线。</p>
+        <span class="overline">LAB MATERIAL INTELLIGENCE</span>
+        <h1>让实验不停在<br />缺料之前。</h1>
+        <p>让实时库存、AI 风险草案和人工审批连成一条可追踪的物资决策线。</p>
       </div>
       <div class="login-graphic">
         <span class="graphic-line"></span
@@ -56,7 +56,7 @@ async function login() {
       <form class="login-card" @submit.prevent="login">
         <span class="overline">WELCOME BACK</span>
         <h2>登录工作台</h2>
-        <p>使用已分配的仓库账号继续。</p>
+        <p>使用已分配的实验室物资账号继续。</p>
         <label
           >账号<input
             v-model="username"

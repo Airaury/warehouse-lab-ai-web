@@ -44,6 +44,8 @@ const area = computed(() =>
       <polygon :points="area" fill="url(#chartFill)" />
       <polyline
         :points="points"
+        pathLength="1"
+        class="trend-line"
         fill="none"
         stroke="#258d66"
         stroke-width="3.5"

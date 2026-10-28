@@ -32,7 +32,7 @@ async function logout() {
       <RouterLink to="/" class="brand"
         ><span class="brand-mark">序</span
         ><span
-          ><strong>仓序</strong><small>智能仓储工作台</small></span
+          ><strong>仓序 LAB</strong><small>实验室物资决策台</small></span
         ></RouterLink
       >
       <div class="nav-group-label">工作台</div>
@@ -69,7 +69,7 @@ async function logout() {
         >
       </nav>
       <div class="sidebar-foot">
-        <span class="live-dot"></span><span>仓库运行中</span>
+        <span class="live-dot"></span><span>物资数据已连接</span>
       </div>
     </aside>
     <div class="main-column">
@@ -107,7 +107,11 @@ async function logout() {
         <div v-if="state.error" class="alert error" role="alert">
           {{ state.error }} <button type="button" @click="refresh">重试</button>
         </div>
-        <RouterView />
+        <RouterView v-slot="{ Component }">
+          <Transition name="page" mode="out-in">
+            <component :is="Component" :key="route.path" />
+          </Transition>
+        </RouterView>
       </main>
     </div>
   </div>

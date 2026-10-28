@@ -1,5 +1,7 @@
 import "dotenv/config";
 import assert from "node:assert/strict";
+import { createHash, randomBytes } from "node:crypto";
+import { pool } from "../src/db.js";
 
 const base = `http://127.0.0.1:${process.env.PORT || 3001}`;
 let cookie = "";
@@ -17,17 +19,33 @@ async function call(path, options = {}) {
 
 const noAuth = await call("/api/dashboard");
 assert.equal(noAuth.response.status, 401);
-const login = await call("/api/auth/login", {
-  method: "POST",
-  body: JSON.stringify({
-    username: "admin",
-    password: process.env.BOOTSTRAP_MANAGER_PASSWORD || process.env.ADMIN_TOKEN,
-  }),
-});
-assert.equal(login.response.status, 200, JSON.stringify(login.data));
-assert.equal(login.data.user.role, "MANAGER");
-cookie = login.response.headers.get("set-cookie")?.split(";")[0];
-assert(cookie);
+if (process.env.SMOKE_SESSION === "1") {
+  const [[manager]] = await pool.query(
+    "SELECT id FROM users WHERE role='MANAGER' ORDER BY id LIMIT 1",
+  );
+  assert(manager, "需要一个现有主管账号");
+  const token = randomBytes(32).toString("hex");
+  const hash = createHash("sha256").update(token).digest("hex");
+  await pool.execute(
+    "INSERT INTO sessions (token_hash,user_id,expires_at) VALUES (?,?,DATE_ADD(NOW(), INTERVAL 5 MINUTE))",
+    [hash, manager.id],
+  );
+  cookie = `warehouse_session=${token}`;
+  assert.equal((await call("/api/auth/me")).data.user.role, "MANAGER");
+} else {
+  const login = await call("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({
+      username: "admin",
+      password:
+        process.env.BOOTSTRAP_MANAGER_PASSWORD || process.env.ADMIN_TOKEN,
+    }),
+  });
+  assert.equal(login.response.status, 200, JSON.stringify(login.data));
+  assert.equal(login.data.user.role, "MANAGER");
+  cookie = login.response.headers.get("set-cookie")?.split(";")[0];
+  assert(cookie);
+}
 
 const before = await call("/api/dashboard");
 assert.equal(before.response.status, 200);
@@ -91,9 +109,61 @@ if (process.env.RUN_AI === "1") {
   assert(ai.data.answer.length > 20);
   console.log("通过：DeepSeek 基于实时库存返回建议");
 }
+if (process.env.RUN_AI_PLAN === "1") {
+  const generated = await call("/api/ai/plans", {
+    method: "POST",
+    body: JSON.stringify({
+      question:
+        "请调用只读工具核对实时库存和进行中的补货单，生成低库存补货草案。",
+    }),
+  });
+  assert.equal(generated.response.status, 200, JSON.stringify(generated.data));
+  assert(generated.data.trace.some((row) => row.name === "list_stock_risks"));
+  assert(
+    generated.data.trace.some((row) => row.name === "list_open_replenishments"),
+  );
+  assert(
+    generated.data.plan.items.length > 0,
+    "当前演示数据应有可申请的低库存物资",
+  );
+  const suggestion = generated.data.plan.items[0];
+  const create = await call(`/api/ai/plans/${generated.data.id}/apply`, {
+    method: "POST",
+    body: JSON.stringify({ sku: suggestion.sku }),
+  });
+  assert.equal(create.response.status, 201, JSON.stringify(create.data));
+  const repeated = await call(`/api/ai/plans/${generated.data.id}/apply`, {
+    method: "POST",
+    body: JSON.stringify({ sku: suggestion.sku }),
+  });
+  assert.equal(repeated.response.status, 409);
+  const approved = await call(`/api/replenishments/${create.data.id}/review`, {
+    method: "POST",
+    body: JSON.stringify({ decision: "APPROVED" }),
+  });
+  assert.equal(approved.response.status, 200);
+  const received = await call(`/api/replenishments/${create.data.id}/receive`, {
+    method: "POST",
+  });
+  assert.equal(received.response.status, 200);
+  const out = await call("/api/movements", {
+    method: "POST",
+    body: JSON.stringify({
+      itemId: suggestion.itemId,
+      quantity: create.data.quantity,
+      direction: "OUT",
+      note: "AI 草案验收库存还原",
+    }),
+  });
+  assert.equal(out.response.status, 201);
+  console.log(
+    "通过：真实 DeepSeek 工具调用→结构化草案→人工确认接口→审批→收货→库存还原",
+  );
+}
 const logout = await call("/api/auth/logout", { method: "POST" });
 assert.equal(logout.response.status, 200);
 assert.equal((await call("/api/dashboard")).response.status, 401);
 console.log(
   "通过：登录保护、补货申请→审批→收货→库存更新、统计、消息、退出；库存已还原",
 );
+await pool.end();
