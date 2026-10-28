@@ -1,0 +1,15 @@
+{
+  "name": "ai-warehouse-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n API,WEB -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w client",
+    "start": "npm run start -w server"
+  },
+  "workspaces": ["client", "server"],
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
+
