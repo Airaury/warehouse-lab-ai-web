@@ -1,30 +1,39 @@
 # 仓序 · AI 智能仓库
 
-从 `E:\DataStructures\实验\实验二` 的仓库看板、预警、审批、日志和 AI 面板重构而来。借鉴实验三的搜索筛选与操作状态反馈、实验四的清晰步骤展示。新项目采用 Vue 3 + Vite、Node.js API、MySQL；模型只由服务端调用。
+基于实验二仓库管理网页扩展的 Vue 3 + Express API + MySQL 作品原型。DeepSeek 只由服务端调用，浏览器不会收到模型密钥。项目数据为演示数据。
 
-## 已实现
+## 业务流程
 
-- MySQL 库存读取、分区汇总、低库存预警、最近操作。
-- 管理员口令保护的入库和出库。单次出库超过 50 件先进入审批；批准时再次检查实时库存。
-- AI 决策台读取当前库存和待审批快照，生成补货及风险建议。模型仅能建议，不直接执行库存写入。
-- 桌面与窄屏布局，搜索、筛选、加载、空状态和错误反馈。
+库存预警 → 仓管员申请补货 → 主管审批 → 仓管员确认收货 → MySQL 更新库存与出入库记录 → 消息与统计同步更新。普通出入库直接登记；超过 50 的出库先经过主管审批。AI 仓储运营分析师读取当前库存、近期出入库及进行中的申请，给出有 SKU 和数字依据的建议，不直接修改业务数据。
 
-## 本机启动
+## 岗位与页面
 
-1. 使用 MySQL 8 执行 `server/schema.sql`，创建 `ai_warehouse` 数据库并写入演示物资。建议单独创建应用用户，赋予该数据库的 `SELECT, INSERT, UPDATE` 权限。
-2. 将 `server/.env.example` **复制**为 `server/.env`，填入本机 MySQL 用户、密码和随机生成的 `ADMIN_TOKEN`。将**轮换后的**模型密钥填入 `AI_API_KEY`。`server/.env` 已被 `.gitignore` 排除，不能提交或发给评委。
-3. 在本目录运行 `npm install` 和 `npm run dev`，打开 `http://127.0.0.1:5173`。API 运行在 `http://127.0.0.1:3001`，Vite 会代理 `/api`。
-4. 用 `GET http://127.0.0.1:3001/api/health` 检查数据库与 AI 配置状态。先在页面做出入库操作，再用 AI 决策台对实时库存提问。
+| 岗位 | 页面与权限 |
+| --- | --- |
+| 主管 `MANAGER` | 全部页面；审批出库和补货、创建账号、登记操作 |
+| 仓管员 `OPERATOR` | 总览、库存、出入库、补货、统计、AI、消息；可申请和收货 |
+| 观察员 `VIEWER` | 总览、库存、统计、AI、消息；只读业务数据 |
 
-模型接口使用 DeepSeek Chat Completions 协议，默认 `deepseek-flash` 非思考模式。`AI_BASE_URL` 和 `AI_MODEL` 均可在私有环境变量里调整。没有配置密钥时，库存功能仍可用，AI 决策台会显示未配置状态。
+页面使用 Vue Router：`/`、`/inventory`、`/operations`、`/replenishments`、`/approvals`、`/analytics`、`/advisor`、`/notifications`、`/users`、`/login`。前端路由和服务端权限同时限制操作。登录使用服务端随机会话、`HttpOnly`/`SameSite=Strict` Cookie；密码在 MySQL 中保存为 scrypt 加盐散列。
 
-## 关键边界
+## 本机运行
 
-- 当前口令机制只面向本机演示。公网部署前需增加正式用户登录、服务端角色权限、HTTPS 和审计日志。
-- SQL 中的库存是**演示数据**，不是现实仓库记录；正式使用前需要真实数据源、业务规则和验证集。
-- 模型建议不等于采购单。采购价格、交期、历史消耗等尚未接入，模型会被要求说明数据不足。
-- 不要复用实验三网页中曾写入源码的旧 API 密钥；应先在服务商处撤销或轮换。
+1. 安装 Node.js 20+ 和 MySQL 8。使用 MySQL 管理员执行 [`server/schema.sql`](server/schema.sql)；重复执行不会重复插入演示物资。已有旧版数据库也需要重新执行此文件以增加账号、会话、补货与消息表。
+2. 复制 `server/.env.example` 为 `server/.env`。填写 `DB_USER`、`DB_PASSWORD`、`BOOTSTRAP_MANAGER_PASSWORD`（至少 12 位）、`AI_API_KEY`。如果沿用旧环境文件，首次创建主管时也可读取原有 `ADMIN_TOKEN` 作为初始密码；后续认证已不使用该口令。
+3. MySQL 应用账号需要 `ai_warehouse` 上的 `SELECT, INSERT, UPDATE`，以及 `ai_warehouse.sessions` 上的 `DELETE`。`schema.sql` 末尾有授权示例。数据库管理员账号只用于建表，不用于日常 API 运行。
+4. 在项目根目录运行 `npm install`、`npm run dev`，打开 `http://127.0.0.1:5173/`。首次启动会在用户表为空时创建账号 `admin`，密码为私有环境变量中的初始密码。主管登录后可在“账号管理”创建其他岗位账号。
 
-## 赛事材料
+```text
+client (Vue 3 / Vue Router / Vite) → /api (Express) → MySQL 8
+                                            └──────→ DeepSeek Chat Completions
+```
 
-保留连续的 Git 提交历史。提交前准备 README 复现指南、环境变量模板、技术文档、演示视频，并确认在线演示地址和测试账号（如提供）。
+服务端默认监听 `127.0.0.1:3001`，Vite 将 `/api` 代理到该端口。查看 `GET /api/health` 可确认数据库和 AI 配置状态。密钥只能写入忽略的 `server/.env` 或部署平台环境变量，绝不能写进 `VITE_` 前缀变量、浏览器源码、截图、公开仓库或演示资料。已在聊天或旧实验中暴露过的密钥应在服务商后台轮换。
+
+## 验证
+
+从根目录运行 `npm run build`；服务启动后在 `server` 目录运行 `node scripts/smoke.mjs`，将真实测试补货 1 单位并通过出库还原库存。设置私有环境变量 `RUN_AI=1` 可额外验证 DeepSeek 请求。测试会保留申请、消息和出入库审计记录。
+
+## 参赛材料
+
+逐项对照与剩余差距见 [`docs/参赛标准差距分析.md`](docs/参赛标准差距分析.md)。提交前仍需准备 5–8 分钟、至少 1080p 的 MP4 演示和不超过 30 页的 PDF 技术文档；团队信息、真实用户验证、公开仓库及演示地址由参赛团队补齐。
