@@ -37,6 +37,60 @@ CREATE TABLE IF NOT EXISTS approvals (
   INDEX idx_approvals_status (status, created_at)
 );
 
+CREATE TABLE IF NOT EXISTS users (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(50) NOT NULL UNIQUE,
+  display_name VARCHAR(60) NOT NULL,
+  role ENUM('MANAGER','OPERATOR','VIEWER') NOT NULL,
+  password_hash VARCHAR(180) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash CHAR(64) NOT NULL PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  expires_at DATETIME NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  INDEX idx_sessions_expires (expires_at)
+);
+
+CREATE TABLE IF NOT EXISTS replenishments (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  item_id BIGINT UNSIGNED NOT NULL,
+  quantity INT UNSIGNED NOT NULL,
+  reason VARCHAR(200) NOT NULL DEFAULT '',
+  status ENUM('PENDING','APPROVED','REJECTED','RECEIVED') NOT NULL DEFAULT 'PENDING',
+  requested_by BIGINT UNSIGNED NOT NULL,
+  reviewed_by BIGINT UNSIGNED NULL,
+  received_by BIGINT UNSIGNED NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  reviewed_at TIMESTAMP NULL,
+  received_at TIMESTAMP NULL,
+  FOREIGN KEY (item_id) REFERENCES items(id),
+  FOREIGN KEY (requested_by) REFERENCES users(id),
+  FOREIGN KEY (reviewed_by) REFERENCES users(id),
+  FOREIGN KEY (received_by) REFERENCES users(id),
+  INDEX idx_replenishments_status (status, created_at)
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  audience ENUM('MANAGER','OPERATOR','ALL') NOT NULL,
+  title VARCHAR(100) NOT NULL,
+  body VARCHAR(240) NOT NULL,
+  target_path VARCHAR(100) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_notifications_created (created_at)
+);
+
+CREATE TABLE IF NOT EXISTS notification_reads (
+  notification_id BIGINT UNSIGNED NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  PRIMARY KEY (notification_id,user_id),
+  FOREIGN KEY (notification_id) REFERENCES notifications(id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
 INSERT INTO items (sku,name,category,zone,quantity,min_quantity,unit) VALUES
 ('A-SENSOR-01','环境传感器','电子元件','A区',86,20,'件'),
 ('A-MCU-02','微控制器','电子元件','A区',34,20,'件'),
@@ -50,4 +104,5 @@ ON DUPLICATE KEY UPDATE id=id;
 -- 示例：先以管理员账号执行本文件，再按需创建应用专用用户。
 -- CREATE USER 'warehouse_app'@'127.0.0.1' IDENTIFIED BY '自行设置的强密码';
 -- GRANT SELECT, INSERT, UPDATE ON ai_warehouse.* TO 'warehouse_app'@'127.0.0.1';
+-- GRANT DELETE ON ai_warehouse.sessions TO 'warehouse_app'@'127.0.0.1';
 
