@@ -7,9 +7,12 @@
     "build": "npm run build -w client",
     "start": "npm run start -w server"
   },
-  "workspaces": ["client", "server"],
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "prettier": "^3.9.10"
   }
 }
-
