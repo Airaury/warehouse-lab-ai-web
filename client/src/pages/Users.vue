@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, ref } from "vue";
-import { request } from "../api.js";
+import { request, state } from "../api.js";
 const form = ref({
   username: "",
   displayName: "",
@@ -11,6 +11,11 @@ const busy = ref(false),
   error = ref(""),
   message = ref("");
 const users = ref([]);
+const action = ref(null);
+const actionPassword = ref("");
+const actionError = ref("");
+const actionBusy = ref(false);
+const actionMessage = ref("");
 async function loadUsers() {
   try {
     users.value = (await request("/api/users")).users;
@@ -43,15 +48,47 @@ async function submit() {
     busy.value = false;
   }
 }
+function openAction(type, user) {
+  action.value = { type, user };
+  actionPassword.value = "";
+  actionError.value = "";
+}
+async function confirmAction() {
+  if (!action.value || actionBusy.value) return;
+  actionBusy.value = true;
+  actionError.value = "";
+  actionMessage.value = "";
+  try {
+    const { type, user } = action.value;
+    const result =
+      type === "delete"
+        ? await request(`/api/users/${user.id}`, { method: "DELETE" })
+        : await request(`/api/users/${user.id}/reset-password`, {
+            method: "POST",
+            body: JSON.stringify({ newPassword: actionPassword.value }),
+          });
+    actionMessage.value = result.message;
+    action.value = null;
+    actionPassword.value = "";
+    await loadUsers();
+  } catch (err) {
+    actionError.value = err.message;
+  } finally {
+    actionBusy.value = false;
+  }
+}
 </script>
 <template>
   <div class="page-heading">
     <div>
       <span class="overline">ACCESS</span>
       <h1>账号管理</h1>
-      <p>按岗位分配最小必要权限。</p>
+      <p>仅一名主管；副主管负责业务审批，账号管理由主管负责。</p>
     </div>
   </div>
+  <p v-if="actionMessage" class="alert success" role="status">
+    {{ actionMessage }}
+  </p>
   <div class="two-column">
     <section class="panel">
       <div class="panel-head">
@@ -77,7 +114,7 @@ async function submit() {
         ><label
           >岗位角色<select v-model="form.role">
             <option value="OPERATOR">仓管员</option>
-            <option value="MANAGER">主管</option>
+            <option value="DEPUTY">副主管</option>
             <option value="VIEWER">观察员</option>
           </select></label
         ><label
@@ -111,6 +148,10 @@ async function submit() {
         <p>审批出库与补货、管理账号、执行操作和查看分析。</p>
       </div>
       <div class="role-row">
+        <span>副主管</span>
+        <p>审批出库与补货、执行操作和查看分析；不能管理账号。</p>
+      </div>
+      <div class="role-row">
         <span>仓管员</span>
         <p>登记出入库、申请补货、确认收货和查看分析。</p>
       </div>
@@ -135,6 +176,7 @@ async function submit() {
             <th>账号</th>
             <th>姓名</th>
             <th>岗位</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -143,14 +185,94 @@ async function submit() {
             <td>{{ user.displayName }}</td>
             <td>
               {{
-                { MANAGER: "主管", OPERATOR: "仓管员", VIEWER: "观察员" }[
-                  user.role
-                ]
+                {
+                  MANAGER: "主管",
+                  DEPUTY: "副主管",
+                  OPERATOR: "仓管员",
+                  VIEWER: "观察员",
+                }[user.role]
               }}
+            </td>
+            <td>
+              <div v-if="user.id !== state.user?.id" class="user-actions">
+                <button type="button" @click="openAction('reset', user)">
+                  重置密码
+                </button>
+                <button
+                  type="button"
+                  class="danger-text"
+                  @click="openAction('delete', user)"
+                >
+                  删除
+                </button>
+              </div>
+              <span v-else class="self-label">当前账号</span>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
   </section>
+  <div v-if="action" class="confirm-backdrop" @click.self="action = null">
+    <div
+      class="confirm-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="user-action-title"
+    >
+      <span class="overline">ACCOUNT CONTROL</span>
+      <h2 id="user-action-title">
+        {{ action.type === "delete" ? "删除账号" : "重置密码" }}
+      </h2>
+      <p>
+        <strong>{{ action.user.displayName }}</strong> ·
+        {{ action.user.username }}
+      </p>
+      <template v-if="action.type === 'delete'">
+        <p>
+          删除后该账号无法登录，所有会话立即失效；已有审批与补货记录仍保留用于追溯。
+        </p>
+      </template>
+      <template v-else>
+        <p>请当面告知使用者新密码。重置后原有登录会话会失效。</p>
+        <label class="modal-field"
+          >新密码
+          <input
+            v-model="actionPassword"
+            type="password"
+            autocomplete="new-password"
+            minlength="12"
+            maxlength="128"
+            placeholder="至少 12 位"
+          />
+        </label>
+      </template>
+      <p v-if="actionError" class="form-message error" role="alert">
+        {{ actionError }}
+      </p>
+      <div class="confirm-actions">
+        <button type="button" class="text-button" @click="action = null">
+          取消
+        </button>
+        <button
+          type="button"
+          class="primary-button"
+          :class="{ 'danger-button': action.type === 'delete' }"
+          :disabled="
+            actionBusy ||
+            (action.type === 'reset' && actionPassword.length < 12)
+          "
+          @click="confirmAction"
+        >
+          {{
+            actionBusy
+              ? "处理中…"
+              : action.type === "delete"
+                ? "确认删除"
+                : "确认重置"
+          }}
+        </button>
+      </div>
+    </div>
+  </div>
 </template>

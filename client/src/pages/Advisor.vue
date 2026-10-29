@@ -1,11 +1,11 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
 import { refresh, request, state, time } from "../api.js";
 
 const question = ref("请核对实验室物资风险，按紧急程度形成可审核的补货草案。");
 const mode = ref("plan");
-const planRun = ref(null);
+const planRun = ref(state.latestPlan);
 const answer = ref("");
 const answerAt = ref("");
 const error = ref("");
@@ -13,7 +13,13 @@ const success = ref("");
 const busy = ref(false);
 const confirmSku = ref("");
 const applying = ref(false);
-const applied = ref([]);
+const applied = ref(state.latestPlan?.applied || []);
+watch(() => state.latestPlan, (run) => {
+  if (run && !planRun.value) {
+    planRun.value = run;
+    applied.value = run.applied || [];
+  }
+});
 const selected = computed(() =>
   planRun.value?.plan.items.find((row) => row.sku === confirmSku.value),
 );
@@ -42,6 +48,7 @@ async function analyze() {
         method: "POST",
         body: JSON.stringify({ question: question.value.trim() }),
       });
+      state.latestPlan = planRun.value;
     } else {
       const result = await request("/api/ai/advice", {
         method: "POST",
@@ -67,6 +74,7 @@ async function apply() {
       body: JSON.stringify({ sku: confirmSku.value }),
     });
     applied.value = [...applied.value, confirmSku.value];
+    state.latestPlan = { ...planRun.value, applied: applied.value };
     success.value = `${selected.value.name}：已提交补货 ${result.quantity} ${selected.value.unit}，等待主管审批。`;
     confirmSku.value = "";
     await refresh();
@@ -88,9 +96,14 @@ async function apply() {
     </div>
   </div>
   <div class="advisor-layout">
-    <section class="advisor-panel">
+    <section class="advisor-panel invoke-panel" :class="{ 'is-busy': busy }">
+      <div class="invoke-beams" aria-hidden="true"></div>
+      <span class="invoke-status"
+        ><i class="live-dot"></i
+        >{{ state.aiConfigured ? "分析核心已就绪" : "等待模型配置" }}</span
+      >
       <div class="advisor-ident">
-        <span class="advisor-symbol">✳</span>
+        <span class="advisor-symbol"><img src="/lab-mark.svg" alt="" /></span>
         <div>
           <span class="overline">RISK ANALYST</span>
           <h2>实验室物资分析师</h2>
@@ -141,7 +154,7 @@ async function apply() {
       <div class="advisor-submit">
         <span>{{ question.length }} / 500</span>
         <button
-          class="primary-button"
+          class="primary-button scan-action"
           type="button"
           :disabled="busy || !state.aiConfigured || !question.trim()"
           @click="analyze"
@@ -181,7 +194,7 @@ async function apply() {
         role="status"
         aria-live="polite"
       >
-        <span class="analysis-orbit">✳</span>
+        <img class="analysis-orbit" src="/lab-mark.svg" alt="" />
         <strong>正在核对库存与补货状态</strong>
         <p>模型响应后会显示实际使用的工具和可审核的结果。</p>
         <div class="loading-line"><span></span></div>
@@ -281,7 +294,7 @@ async function apply() {
         </div>
         <div v-else-if="answer && !busy" class="answer-text">{{ answer }}</div>
         <div v-else-if="!busy" class="answer-empty">
-          <span>✳</span><strong>从真实库存开始分析</strong>
+          <img src="/lab-mark.svg" alt="" /><strong>从真实库存开始分析</strong>
           <p>生成可核对、可提交、可追踪的实验室物资补货草案。</p>
         </div>
       </Transition>

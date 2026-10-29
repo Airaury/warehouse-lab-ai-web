@@ -7,6 +7,10 @@
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
     "db:migrate": "node scripts/migrate.mjs",
+    "db:seed": "node scripts/seed-items.mjs",
+    "db:seed-trend": "node scripts/seed-trend.mjs",
+    "db:seed-demo": "node scripts/seed-demo.mjs",
+    "account:recover": "node scripts/recover-manager.mjs",
     "test:unit": "node --test tests/*.test.mjs"
   },
   "dependencies": {

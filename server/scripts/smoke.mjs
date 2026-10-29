@@ -49,9 +49,16 @@ if (process.env.SMOKE_SESSION === "1") {
 
 const before = await call("/api/dashboard");
 assert.equal(before.response.status, 200);
+const openItemIds = new Set(
+  before.data.replenishments
+    .filter((row) => ["PENDING", "APPROVED"].includes(row.status))
+    .map((row) => row.itemId),
+);
 const item =
-  before.data.items.find((row) => row.quantity <= row.minQuantity) ||
-  before.data.items[0];
+  before.data.items.find(
+    (row) => row.quantity <= row.minQuantity && !openItemIds.has(row.id),
+  ) || before.data.items.find((row) => !openItemIds.has(row.id));
+assert(item, "所有物资都有进行中的补货单，无法执行验收");
 const initial = item.quantity;
 const request = await call("/api/replenishments", {
   method: "POST",
@@ -94,7 +101,7 @@ assert(
 );
 const analytics = await call("/api/analytics");
 assert.equal(analytics.response.status, 200);
-assert.equal(analytics.data.trend.length, 14);
+assert.equal(analytics.data.itemTrends[item.id].length, 14);
 const notices = await call("/api/notifications");
 assert.equal(notices.response.status, 200);
 assert(notices.data.notifications.length > 0);

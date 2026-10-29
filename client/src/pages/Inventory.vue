@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { RouterLink } from "vue-router";
 import { state } from "../api.js";
 import TrendChart from "../components/TrendChart.vue";
+import RollingNumber from "../components/RollingNumber.vue";
 const search = ref(""),
   zone = ref("全部库区"),
   status = ref("全部状态");
@@ -42,12 +43,10 @@ const items = computed(() =>
       <h1>实时库存</h1>
       <p>关注数量、库区和安全阈值。</p>
     </div>
-    <RouterLink
-      v-if="state.user?.role !== 'VIEWER'"
-      to="/replenishments"
-      class="primary-button"
-      >发起补货 <span>→</span></RouterLink
-    >
+    <div v-if="state.user?.role !== 'VIEWER'" class="inventory-actions">
+      <RouterLink to="/operations?mode=new" class="hero-secondary">新增物资入库 →</RouterLink>
+      <RouterLink to="/replenishments" class="primary-button">发起补货 <span>→</span></RouterLink>
+    </div>
   </div>
   <section class="panel compact-chart">
     <div class="panel-head">
@@ -79,7 +78,7 @@ const items = computed(() =>
       <div>
         <span class="overline">ITEMS</span>
         <h2>
-          物资清单 <span class="muted-count">{{ items.length }}</span>
+          物资清单 <span class="muted-count"><RollingNumber :value="items.length" /></span>
         </h2>
       </div>
       <div class="filters">

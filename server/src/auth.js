@@ -17,7 +17,7 @@ export async function hashPassword(password) {
   return `${salt}:${derived.toString("hex")}`;
 }
 
-async function verifyPassword(password, stored) {
+export async function verifyPassword(password, stored) {
   const [salt, hex] = String(stored || "").split(":");
   if (!salt || !hex || hex.length !== 128) return false;
   const actual = await scrypt(password, salt, 64);
@@ -88,7 +88,7 @@ export function authRoutes(app) {
     loginAttempts.set(key, recent);
     try {
       const [[user]] = await pool.execute(
-        "SELECT id,username,display_name AS displayName,role,password_hash AS passwordHash FROM users WHERE username=?",
+        "SELECT id,username,display_name AS displayName,role,password_hash AS passwordHash FROM users WHERE username=? AND deleted_at IS NULL",
         [username],
       );
       if (!user || !(await verifyPassword(password, user.passwordHash)))
@@ -137,6 +137,57 @@ export function authRoutes(app) {
       }
     },
   );
+  app.post(
+    "/api/auth/change-password",
+    requireAuth,
+    sameOrigin,
+    async (req, res, next) => {
+      const currentPassword = String(req.body.currentPassword || "");
+      const newPassword = String(req.body.newPassword || "");
+      if (
+        !currentPassword ||
+        newPassword.length < 12 ||
+        newPassword.length > 128
+      )
+        return res
+          .status(400)
+          .json({ error: "请填写当前密码和 12—128 位新密码" });
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        const [[user]] = await conn.execute(
+          "SELECT password_hash AS passwordHash FROM users WHERE id=? AND deleted_at IS NULL FOR UPDATE",
+          [req.user.id],
+        );
+        if (
+          !user ||
+          !(await verifyPassword(currentPassword, user.passwordHash))
+        ) {
+          await conn.rollback();
+          return res.status(403).json({ error: "当前密码不正确" });
+        }
+        if (await verifyPassword(newPassword, user.passwordHash)) {
+          await conn.rollback();
+          return res.status(400).json({ error: "新密码不能与当前密码相同" });
+        }
+        await conn.execute("UPDATE users SET password_hash=? WHERE id=?", [
+          await hashPassword(newPassword),
+          req.user.id,
+        ]);
+        await conn.execute(
+          "DELETE FROM sessions WHERE user_id=? AND token_hash<>?",
+          [req.user.id, req.sessionHash],
+        );
+        await conn.commit();
+        res.json({ message: "密码已更新，其他设备的会话已退出" });
+      } catch (error) {
+        await conn.rollback();
+        next(error);
+      } finally {
+        conn.release();
+      }
+    },
+  );
 }
 
 export async function requireAuth(req, res, next) {
@@ -151,7 +202,7 @@ export async function requireAuth(req, res, next) {
   try {
     const hash = tokenHash(raw);
     const [[user]] = await pool.execute(
-      "SELECT u.id,u.username,u.display_name AS displayName,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>NOW()",
+      "SELECT u.id,u.username,u.display_name AS displayName,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>NOW() AND u.deleted_at IS NULL",
       [hash],
     );
     if (!user) return res.status(401).json({ error: "登录已过期，请重新登录" });

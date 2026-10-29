@@ -10,6 +10,7 @@ import Analytics from "./pages/Analytics.vue";
 import Advisor from "./pages/Advisor.vue";
 import Notifications from "./pages/Notifications.vue";
 import Users from "./pages/Users.vue";
+import Security from "./pages/Security.vue";
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -35,6 +36,7 @@ export const router = createRouter({
       meta: { title: "消息中心" },
     },
     { path: "/users", component: Users, meta: { title: "账号管理" } },
+    { path: "/security", component: Security, meta: { title: "安全设置" } },
     { path: "/:pathMatch(.*)*", redirect: "/" },
   ],
 });
@@ -45,8 +47,9 @@ router.beforeEach(async (to) => {
     return { path: "/login", query: { redirect: to.fullPath } };
   if (to.path === "/login" && state.user) return "/";
   if (
-    ["/approvals", "/users"].includes(to.path) &&
-    state.user?.role !== "MANAGER"
+    (to.path === "/approvals" &&
+      !["MANAGER", "DEPUTY"].includes(state.user?.role)) ||
+    (to.path === "/users" && state.user?.role !== "MANAGER")
   )
     return "/";
   if (

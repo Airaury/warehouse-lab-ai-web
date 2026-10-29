@@ -22,6 +22,43 @@ try {
     "utf8",
   );
   await connection.query(schema);
+  const [[column]] = await connection.query(
+    "SELECT COUNT(*) AS count FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='ai_warehouse' AND TABLE_NAME='users' AND COLUMN_NAME='deleted_at'",
+  );
+  if (!column.count) {
+    await connection.query(
+      "ALTER TABLE ai_warehouse.users ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL",
+    );
+  }
+  const [[roleColumn]] = await connection.query(
+    "SELECT COLUMN_TYPE AS columnType FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='ai_warehouse' AND TABLE_NAME='users' AND COLUMN_NAME='role'",
+  );
+  if (!roleColumn?.columnType?.includes("'DEPUTY'")) {
+    await connection.query(
+      "ALTER TABLE ai_warehouse.users MODIFY COLUMN role ENUM('MANAGER','DEPUTY','OPERATOR','VIEWER') NOT NULL",
+    );
+  }
+  const [managers] = await connection.query(
+    "SELECT id,username FROM ai_warehouse.users WHERE role='MANAGER' AND deleted_at IS NULL ORDER BY CASE WHEN username='admin' THEN 0 ELSE 1 END,id",
+  );
+  for (const manager of managers.slice(1)) {
+    await connection.execute(
+      "UPDATE ai_warehouse.users SET role='DEPUTY' WHERE id=?",
+      [manager.id],
+    );
+    await connection.execute(
+      "DELETE FROM ai_warehouse.sessions WHERE user_id=?",
+      [manager.id],
+    );
+  }
+  const [[slotColumn]] = await connection.query(
+    "SELECT COUNT(*) AS count FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='ai_warehouse' AND TABLE_NAME='users' AND COLUMN_NAME='active_manager_slot'",
+  );
+  if (!slotColumn.count) {
+    await connection.query(
+      "ALTER TABLE ai_warehouse.users ADD COLUMN active_manager_slot TINYINT GENERATED ALWAYS AS (CASE WHEN role='MANAGER' AND deleted_at IS NULL THEN 1 ELSE NULL END) STORED, ADD UNIQUE KEY uq_active_manager (active_manager_slot)",
+    );
+  }
   console.log("Database schema is current.");
 } catch (err) {
   console.error(`数据库迁移失败：${err.code || err.message}`);

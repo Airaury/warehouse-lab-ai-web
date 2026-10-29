@@ -5,6 +5,7 @@ const props = defineProps({
   unit: { type: String, default: "件" },
 });
 const values = computed(() => props.trend.map((row) => Number(row.quantity)));
+const hasDemoSamples = computed(() => props.trend.some((row) => row.demo));
 const min = computed(() => Math.max(0, Math.min(...values.value, 0) - 10));
 const max = computed(() => Math.max(...values.value, 1) + 10);
 const points = computed(() =>
@@ -22,6 +23,7 @@ const area = computed(() =>
 </script>
 <template>
   <div class="chart-wrap" v-if="trend.length">
+    <small v-if="hasDemoSamples" class="trend-demo-label">含演示历史样本 · 当前结存来自实时库存</small>
     <svg
       viewBox="0 0 760 252"
       role="img"
@@ -44,7 +46,6 @@ const area = computed(() =>
       <polygon :points="area" fill="url(#chartFill)" />
       <polyline
         :points="points"
-        pathLength="1"
         class="trend-line"
         fill="none"
         stroke="#258d66"
