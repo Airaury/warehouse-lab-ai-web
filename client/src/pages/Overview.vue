@@ -92,7 +92,7 @@ async function runAnalysis() {
       </div>
     </div>
   </section>
-  <section v-if="state.user?.username === 'chairman_demo'" class="panel demo-route" aria-label="演示路线">
+  <section v-if="state.user?.role === 'CHAIRMAN'" class="panel demo-route" aria-label="演示路线">
     <div class="demo-route-intro"><span class="overline">LIVE DEMO / BUSINESS LOOP</span><h2>董事长演示路线</h2><p>演示数据已标记。沿四个节点展示 AI、审批、出入库和消息如何联动。</p></div>
     <div class="demo-route-steps">
       <RouterLink to="/advisor"><b>01</b><strong>AI 风险决策</strong><small>读取证据 · 生成草案</small><span>↗</span></RouterLink>
@@ -141,7 +141,7 @@ async function runAnalysis() {
       ><small>包含阈值临界物资</small><em>!</em></RouterLink
     ><RouterLink
       :to="
-        canOperate && ['MANAGER', 'DEPUTY'].includes(state.user?.role)
+        canOperate && ['CHAIRMAN', 'MANAGER', 'DEPUTY'].includes(state.user?.role)
           ? '/approvals'
           : '/notifications'
       "

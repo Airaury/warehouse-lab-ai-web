@@ -26,20 +26,20 @@ const connection = await mysql.createConnection({
 });
 try {
   await connection.beginTransaction();
-  const [[manager]] = await connection.execute(
-    "SELECT id FROM users WHERE username=? AND role='MANAGER' AND deleted_at IS NULL FOR UPDATE",
+  const [[account]] = await connection.execute(
+    "SELECT id FROM users WHERE username=? AND role IN ('CHAIRMAN','MANAGER') AND deleted_at IS NULL FOR UPDATE",
     [username],
   );
-  if (!manager) throw new Error("未找到有效主管账号");
+  if (!account) throw new Error("未找到有效的董事长或主管账号");
   await connection.execute("UPDATE users SET password_hash=? WHERE id=?", [
     await hashPassword(newPassword),
-    manager.id,
+    account.id,
   ]);
   await connection.execute("DELETE FROM sessions WHERE user_id=?", [
-    manager.id,
+    account.id,
   ]);
   await connection.commit();
-  console.log("主管密码已恢复，原有登录会话已失效。");
+  console.log("账号密码已恢复，原有登录会话已失效。");
 } catch (err) {
   await connection.rollback();
   console.error(`恢复失败：${err.code || err.message}`);

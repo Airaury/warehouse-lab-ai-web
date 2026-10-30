@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import express from "express";
 import { pool } from "./db.js";
 import { createPlan } from "./ai-plan.js";
+import { canCreateAccount, canManageAccount } from "./permissions.js";
 import {
   authRoutes,
   bootstrapManager,
@@ -32,7 +33,7 @@ const run = (handler) => (req, res, next) =>
   Promise.resolve(handler(req, res)).catch(next);
 const mutate = [requireAuth, sameOrigin];
 const notificationAudience = (role) =>
-  role === "MANAGER" || role === "DEPUTY"
+  role === "CHAIRMAN" || role === "MANAGER" || role === "DEPUTY"
     ? "MANAGER"
     : role === "OPERATOR"
       ? "OPERATOR"
@@ -274,10 +275,10 @@ app.post(
       displayName.length > 60 ||
       password.length < 12 ||
       password.length > 128 ||
-      !["DEPUTY", "OPERATOR", "VIEWER"].includes(role)
+      !canCreateAccount(req.user.role, role)
     ) {
       return res.status(400).json({
-        error: "请填写有效账号、姓名、角色和至少 12 位密码；主管账号仅有一个",
+        error: "请填写有效账号、姓名、可创建的岗位和至少 12 位密码",
       });
     }
     try {
@@ -289,7 +290,7 @@ app.post(
       res.status(201).json({ message: "账号已创建" });
     } catch (err) {
       if (err.code === "ER_DUP_ENTRY")
-        return res.status(409).json({ error: "账号已存在" });
+        return res.status(409).json({ error: role === "MANAGER" ? "当前已有主管账号" : "账号已存在" });
       throw err;
     }
   }),
@@ -319,9 +320,9 @@ app.post(
         await conn.rollback();
         return res.status(404).json({ error: "账号不存在" });
       }
-      if (target.role === "MANAGER") {
+      if (!canManageAccount(req.user.role, target.role)) {
         await conn.rollback();
-        return res.status(403).json({ error: "不能修改同级主管账号" });
+        return res.status(403).json({ error: "无权重置该账号密码" });
       }
       await conn.execute("UPDATE users SET password_hash=? WHERE id=?", [
         await hashPassword(password),
@@ -359,9 +360,9 @@ app.delete(
         await conn.rollback();
         return res.status(404).json({ error: "账号不存在或已删除" });
       }
-      if (target.role === "MANAGER") {
+      if (!canManageAccount(req.user.role, target.role)) {
         await conn.rollback();
-        return res.status(403).json({ error: "不能删除同级主管账号" });
+        return res.status(403).json({ error: "无权删除该账号" });
       }
       const disabledHash = await hashPassword(randomBytes(32).toString("hex"));
       await conn.execute(

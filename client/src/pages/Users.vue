@@ -16,6 +16,11 @@ const actionPassword = ref("");
 const actionError = ref("");
 const actionBusy = ref(false);
 const actionMessage = ref("");
+const isChairman = () => state.user?.role === "CHAIRMAN";
+const canManageUser = (user) =>
+  user.id !== state.user?.id &&
+  user.role !== "CHAIRMAN" &&
+  (isChairman() || user.role !== "MANAGER");
 async function loadUsers() {
   try {
     users.value = (await request("/api/users")).users;
@@ -83,7 +88,7 @@ async function confirmAction() {
     <div>
       <span class="overline">ACCESS</span>
       <h1>账号管理</h1>
-      <p>仅一名主管；副主管负责业务审批，账号管理由主管负责。</p>
+      <p>按岗位分配权限，账号变更与历史业务记录可追溯。</p>
     </div>
   </div>
   <p v-if="actionMessage" class="alert success" role="status">
@@ -113,6 +118,7 @@ async function confirmAction() {
             placeholder="例如 仓管员张三" /></label
         ><label
           >岗位角色<select v-model="form.role">
+            <option v-if="isChairman()" value="MANAGER">主管</option>
             <option value="OPERATOR">仓管员</option>
             <option value="DEPUTY">副主管</option>
             <option value="VIEWER">观察员</option>
@@ -142,6 +148,10 @@ async function confirmAction() {
           <span class="overline">ROLES</span>
           <h2>岗位权限</h2>
         </div>
+      </div>
+      <div class="role-row">
+        <span>董事长</span>
+        <p>统筹全部业务，可管理主管和其他岗位账号。</p>
       </div>
       <div class="role-row">
         <span>主管</span>
@@ -187,6 +197,7 @@ async function confirmAction() {
               {{
                 {
                   MANAGER: "主管",
+                  CHAIRMAN: "董事长",
                   DEPUTY: "副主管",
                   OPERATOR: "仓管员",
                   VIEWER: "观察员",
@@ -194,7 +205,7 @@ async function confirmAction() {
               }}
             </td>
             <td>
-              <div v-if="user.id !== state.user?.id" class="user-actions">
+              <div v-if="canManageUser(user)" class="user-actions">
                 <button type="button" @click="openAction('reset', user)">
                   重置密码
                 </button>
@@ -206,7 +217,7 @@ async function confirmAction() {
                   删除
                 </button>
               </div>
-              <span v-else class="self-label">当前账号</span>
+              <span v-else class="self-label">{{ user.id === state.user?.id ? "当前账号" : "无权操作" }}</span>
             </td>
           </tr>
         </tbody>

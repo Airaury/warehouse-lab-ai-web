@@ -28,7 +28,7 @@ flowchart LR
 | 补货与审批 | 申请、批准或驳回、确认到货，记录完整流转过程。 |
 | 数据分析 | 按库区、物资逐层钻取，查看数量占比和近 14 天库存走势。 |
 | 消息中心 | 分类查看审批、补货和库存提醒，支持一键已读与 AI 简报。 |
-| 账号与权限 | 主管、副主管、仓管员、观察员分工；登录和接口均实施权限检查。 |
+| 账号与权限 | 董事长、主管、副主管、仓管员、观察员分工；登录和接口均实施权限检查。 |
 
 ## 界面预览
 
@@ -80,11 +80,13 @@ AI 使用服务端只读工具核对业务数据，建议数量按库存与安�
 
 它是**只保存在本机的环境变量配置文件**，用于存放数据库密码、首次登录密码和 DeepSeek API 密钥。仓库提交的是不含真实密钥的 [`server/.env.example`](server/.env.example) 模板；`.gitignore` 会排除 `server/.env`。部署时也可以在部署平台设置同名环境变量。不要把真实值写进 README、前端 `VITE_` 变量、截图或 Git 提交。
 
+忘记密码时，主管可重置下属账号，董事长可重置主管及其他岗位账号。管理账号无法登录时，由数据库管理员在私有环境变量中设置 `DB_ADMIN_USER`、`DB_ADMIN_PASSWORD`、`RECOVERY_USERNAME`、`RECOVERY_NEW_PASSWORD`，再运行 `npm run account:recover -w server`。恢复会撤销该账号原有会话。
+
 ### 已有数据库与演示数据
 
 - 旧版库：配置私有的 `DB_ADMIN_USER`、`DB_ADMIN_PASSWORD` 后运行 `npm run db:migrate -w server`；重复执行 `schema.sql` 不会升级既有表。
 - 增加演示物资：`npm run db:seed -w server`；生成库存走势样本：`npm run db:seed-trend -w server`。两者均支持重复运行。
-- 准备答辩场景：在私有配置中设置 `DEMO_CHAIRMAN_PASSWORD`（12—128 位），运行 `npm run db:seed-demo -w server`。将创建 `chairman_demo` 副主管演示账号及待审批、消息、低库存场景；不会覆盖已有密码。
+- 准备答辩场景：先运行数据库迁移，在私有配置中设置 `DEMO_CHAIRMAN_PASSWORD`（12—128 位），再运行 `npm run db:seed-demo -w server`。将创建或升级独立的 `chairman_demo` 董事长演示账号，并准备待审批、消息、低库存场景；不会覆盖已有密码。
 
 ## 验证与资料
 

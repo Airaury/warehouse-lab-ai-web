@@ -161,7 +161,7 @@ async function login() {
           忘记密码？
         </button>
         <p v-if="showRecovery" class="recovery-note">
-          请联系主管在“账号管理”中重置密码。若唯一主管忘记密码，请按项目 README
+          请联系主管或董事长在“账号管理”中重置密码。若管理账号无法登录，请按项目 README
           的本机恢复流程操作。
         </p>
         <p v-if="error" class="form-message error" role="alert">{{ error }}</p>
@@ -169,8 +169,8 @@ async function login() {
           {{ busy ? "正在登录…" : "登录仓序" }} <span>→</span>
         </button>
         <div class="login-roles">
-          <span>仓管员 · 日常出入库</span><span>主管 · 审批与账号管理</span
-          ><span>副主管 · 业务审批</span><span>观察员 · 数据查看</span>
+          <span>董事长 · 全局管理</span><span>主管 · 账号与审批</span
+          ><span>副主管 · 业务审批</span><span>仓管员 · 日常出入库</span><span>观察员 · 数据查看</span>
         </div>
       </form>
     </div>

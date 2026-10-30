@@ -204,7 +204,7 @@ try {
   const users = await call("/api/users", "GET", undefined, managerCookie);
   assert(!users.data.users.some((user) => user.id === createdId));
   console.log(
-    "通过：唯一主管、副主管审批边界、主管删号/重置、本人改密、会话撤销、消息一键已读",
+    "通过：主管与副主管权限边界、主管删号/重置、本人改密、会话撤销、消息一键已读",
   );
 } finally {
   if (createdId) {

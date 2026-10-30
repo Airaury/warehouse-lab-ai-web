@@ -48,8 +48,8 @@ router.beforeEach(async (to) => {
   if (to.path === "/login" && state.user) return "/";
   if (
     (to.path === "/approvals" &&
-      !["MANAGER", "DEPUTY"].includes(state.user?.role)) ||
-    (to.path === "/users" && state.user?.role !== "MANAGER")
+      !["CHAIRMAN", "MANAGER", "DEPUTY"].includes(state.user?.role)) ||
+    (to.path === "/users" && !["CHAIRMAN", "MANAGER"].includes(state.user?.role))
   )
     return "/";
   if (

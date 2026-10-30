@@ -94,7 +94,7 @@ async function changePassword() {
       <span class="overline">RECOVERY PATH</span>
       <h2>忘记密码时</h2>
       <p>
-        请联系主管在账号管理页重置。若唯一主管无法登录，请由持有数据库管理员凭据的项目负责人执行本机恢复脚本。
+        请联系主管或董事长在账号管理页重置。若管理账号无法登录，请由持有数据库管理员凭据的项目负责人执行本机恢复脚本。
       </p>
     </aside>
   </div>

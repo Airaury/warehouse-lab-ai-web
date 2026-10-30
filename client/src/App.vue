@@ -12,9 +12,9 @@ watch(theme, (value) => {
   localStorage.setItem("warehouse-theme", value);
 }, { immediate: true });
 const title = computed(() => route.meta.title || "运营总览");
-const manager = computed(() => state.user?.role === "MANAGER");
+const manager = computed(() => ["CHAIRMAN", "MANAGER"].includes(state.user?.role));
 const approver = computed(() =>
-  ["MANAGER", "DEPUTY"].includes(state.user?.role),
+  ["CHAIRMAN", "MANAGER", "DEPUTY"].includes(state.user?.role),
 );
 const operator = computed(() => state.user?.role !== "VIEWER");
 const vReveal = {
@@ -134,8 +134,10 @@ async function logout() {
             aria-label="安全设置与修改密码"
             >{{ state.user?.displayName }}
             <small>{{
-              manager
-                ? "主管"
+              state.user?.role === "CHAIRMAN"
+                ? "董事长"
+                : manager
+                  ? "主管"
                 : state.user?.role === "DEPUTY"
                   ? "副主管"
                   : state.user?.role === "OPERATOR"

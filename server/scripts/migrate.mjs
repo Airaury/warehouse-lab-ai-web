@@ -33,9 +33,22 @@ try {
   const [[roleColumn]] = await connection.query(
     "SELECT COLUMN_TYPE AS columnType FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='ai_warehouse' AND TABLE_NAME='users' AND COLUMN_NAME='role'",
   );
-  if (!roleColumn?.columnType?.includes("'DEPUTY'")) {
+  if (!roleColumn?.columnType?.includes("'CHAIRMAN'")) {
     await connection.query(
-      "ALTER TABLE ai_warehouse.users MODIFY COLUMN role ENUM('MANAGER','DEPUTY','OPERATOR','VIEWER') NOT NULL",
+      "ALTER TABLE ai_warehouse.users MODIFY COLUMN role ENUM('CHAIRMAN','MANAGER','DEPUTY','OPERATOR','VIEWER') NOT NULL",
+    );
+  }
+  const [demoAccounts] = await connection.execute(
+    "SELECT id FROM ai_warehouse.users WHERE username='chairman_demo' AND role='DEPUTY' AND deleted_at IS NULL",
+  );
+  for (const account of demoAccounts) {
+    await connection.execute(
+      "UPDATE ai_warehouse.users SET role='CHAIRMAN' WHERE id=?",
+      [account.id],
+    );
+    await connection.execute(
+      "DELETE FROM ai_warehouse.sessions WHERE user_id=?",
+      [account.id],
     );
   }
   const [managers] = await connection.query(

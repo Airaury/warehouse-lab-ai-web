@@ -9,21 +9,31 @@ if (!password || password.startsWith("replace-") || password.length < 12 || pass
 
 const tag = "[演示场景]";
 const conn = await pool.getConnection();
-const created = { account: 0, approvals: 0, replenishments: 0, movements: 0, notifications: 0 };
+const created = { account: 0, upgradedAccount: 0, approvals: 0, replenishments: 0, movements: 0, notifications: 0 };
 try {
   await conn.beginTransaction();
+  const [[roleColumn]] = await conn.query(
+    "SELECT COLUMN_TYPE AS columnType FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='role'",
+  );
+  if (!roleColumn?.columnType?.includes("'CHAIRMAN'"))
+    throw new Error("请先运行 npm run db:migrate -w server，升级董事长角色");
   const [[existing]] = await conn.execute(
     "SELECT id,role FROM users WHERE username='chairman_demo' AND deleted_at IS NULL FOR UPDATE",
   );
-  if (existing && existing.role !== "DEPUTY") throw new Error("chairman_demo 已存在且权限角色不匹配");
+  if (existing && !["CHAIRMAN", "DEPUTY"].includes(existing.role))
+    throw new Error("chairman_demo 已存在且权限角色不匹配");
   let userId = existing?.id;
   if (!userId) {
     const [result] = await conn.execute(
-      "INSERT INTO users (username,display_name,role,password_hash) VALUES ('chairman_demo','演示董事长','DEPUTY',?)",
+      "INSERT INTO users (username,display_name,role,password_hash) VALUES ('chairman_demo','演示董事长','CHAIRMAN',?)",
       [await hashPassword(password)],
     );
     userId = result.insertId;
     created.account++;
+  } else if (existing.role === "DEPUTY") {
+    await conn.execute("UPDATE users SET role='CHAIRMAN' WHERE id=?", [userId]);
+    await conn.execute("DELETE FROM sessions WHERE user_id=?", [userId]);
+    created.upgradedAccount++;
   }
 
   const [items] = await conn.query("SELECT id,sku,name,quantity,unit FROM items WHERE sku IN ('A-SENSOR-01','B-BAT-01','A-RES-04','A-FAN-03','D-SHELL-01','C-CABLE-01','E-BOARD-01','B-FUSE-04','C-HDMI-03','E-OLED-02') FOR UPDATE");

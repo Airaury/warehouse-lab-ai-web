@@ -6,6 +6,7 @@ import {
 } from "node:crypto";
 import { promisify } from "node:util";
 import { pool } from "./db.js";
+import { roleCanAccess } from "./permissions.js";
 
 const scrypt = promisify(scryptCallback);
 const cookieName = "warehouse_session";
@@ -216,7 +217,7 @@ export async function requireAuth(req, res, next) {
 
 export function roles(...allowed) {
   return (req, res, next) =>
-    allowed.includes(req.user?.role)
+    roleCanAccess(req.user?.role, allowed)
       ? next()
       : res.status(403).json({ error: "当前角色无权执行此操作" });
 }
